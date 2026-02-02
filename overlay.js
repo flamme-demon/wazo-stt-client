@@ -44,7 +44,7 @@ const STYLES = `
   color: #666;
   cursor: pointer;
   transition: all 0.2s ease;
-  margin-left: 4px;
+  margin: 0 12px;
 }
 .stt-transcribe-btn:hover {
   background-color: rgba(0, 0, 0, 0.08);
