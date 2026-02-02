@@ -40,6 +40,7 @@ const STYLES = `
   cursor: pointer;
   transition: all 0.2s ease;
   margin-right: 2px;
+  order: -1;
 }
 .stt-transcribe-btn:hover {
   background-color: rgba(0, 0, 0, 0.08);
@@ -60,15 +61,15 @@ const STYLES = `
 .stt-transcription-panel {
   max-height: 0;
   overflow: hidden;
-  transition: max-height 0.3s ease-out, padding 0.3s ease-out;
+  transition: max-height 0.3s ease-out, padding 0.3s ease-out, margin 0.3s ease-out;
   background-color: #fafafa;
   border-radius: 8px;
-  margin: 0;
+  margin: 0 16px;
 }
 .stt-transcription-panel.expanded {
   max-height: 300px;
   padding: 12px 16px;
-  margin-top: 8px;
+  margin: 8px 16px 16px 16px;
   border: 1px solid #e0e0e0;
 }
 .stt-transcription-header {
@@ -196,7 +197,7 @@ async function loadVoicemails() {
   try {
     const { host, token } = state.context.user;
     const response = await fetch(
-      `https://${host}/api/calld/1.0/users/me/voicemails/messages`,
+      `https://${host}/api/calld/1.0/users/me/voicemails/messages?direction=desc`,
       {
         headers: {
           'Accept': 'application/json',
@@ -341,8 +342,15 @@ function injectTranscriptionPanel(item, voicemail) {
     requestTranscription(voicemail, item, true);
   });
 
-  // Inserer a la fin de l'element voicemail-item (sous la carte)
-  item.appendChild(panel);
+  // Trouver la carte MUI et inserer le panneau apres
+  const card = item.querySelector('.MuiCard-root');
+  if (card) {
+    // Inserer apres la carte MUI
+    card.after(panel);
+  } else {
+    // Fallback: ajouter a la fin de l'item
+    item.appendChild(panel);
+  }
 }
 
 /**
