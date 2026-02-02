@@ -79,11 +79,6 @@
 
   <audio id="audio-player" style="display: none;"></audio>
 
-  <script src="https://unpkg.com/@wazo/euc-plugins-sdk/dist/euc-plugins-sdk.umd.js"></script>
-  <script>
-    // Debug: afficher ce qui est disponible après chargement du SDK
-    console.log('SDK chargé, window.Wazo:', typeof window.Wazo, window.Wazo);
-  </script>
-  <script src="./app.js"></script>
+  <script type="module" src="./app.js"></script>
 </body>
 </html>
