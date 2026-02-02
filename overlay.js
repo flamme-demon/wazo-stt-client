@@ -44,8 +44,7 @@ const STYLES = `
   color: #666;
   cursor: pointer;
   transition: all 0.2s ease;
-  margin-right: 2px;
-  order: -1;
+  margin-left: 4px;
 }
 .stt-transcribe-btn:hover {
   background-color: rgba(0, 0, 0, 0.08);
@@ -71,9 +70,9 @@ const STYLES = `
   border-radius: 8px;
   margin: 0 16px;
   /* Forcer le panneau sur une nouvelle ligne dans un flex container */
-  flex-basis: 100%;
-  width: 100%;
+  flex-basis: calc(100% - 32px);
   flex-shrink: 0;
+  box-sizing: border-box;
 }
 .stt-transcription-panel.expanded {
   max-height: 300px;
@@ -318,8 +317,8 @@ function injectTranscribeButton(item, voicemail) {
     handleTranscribeClick(voicemail, item);
   });
 
-  // Inserer AVANT le bouton play dans le DOM
-  playBtn.parentElement.insertBefore(btn, playBtn);
+  // Inserer apres le bouton play
+  playBtn.after(btn);
 
   console.log('[STT Overlay] Bouton injecte pour:', voicemail.id);
 }
