@@ -27,6 +27,11 @@ const state = {
 
 // Styles CSS a injecter
 const STYLES = `
+/* Assurer que le voicemail-item permet le wrap pour le panneau */
+[data-testid="voicemail-item"] {
+  flex-wrap: wrap !important;
+}
+
 .stt-transcribe-btn {
   display: inline-flex;
   align-items: center;
@@ -65,6 +70,10 @@ const STYLES = `
   background-color: #fafafa;
   border-radius: 8px;
   margin: 0 16px;
+  /* Forcer le panneau sur une nouvelle ligne dans un flex container */
+  flex-basis: 100%;
+  width: 100%;
+  flex-shrink: 0;
 }
 .stt-transcription-panel.expanded {
   max-height: 300px;
@@ -309,8 +318,8 @@ function injectTranscribeButton(item, voicemail) {
     handleTranscribeClick(voicemail, item);
   });
 
-  // Inserer AVANT le bouton play dans le meme conteneur
-  playBtn.parentNode.insertBefore(btn, playBtn);
+  // Inserer AVANT le bouton play dans le DOM
+  playBtn.parentElement.insertBefore(btn, playBtn);
 
   console.log('[STT Overlay] Bouton injecte pour:', voicemail.id);
 }
