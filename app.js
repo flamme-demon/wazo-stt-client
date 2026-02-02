@@ -75,6 +75,20 @@ function setupEventListeners() {
   elements.audioPlayer.addEventListener('ended', () => {
     stopAudio();
   });
+
+  // Mise a jour de la barre de progression
+  elements.audioPlayer.addEventListener('timeupdate', () => {
+    if (state.currentPlayingId) {
+      updatePlayerProgress();
+    }
+  });
+
+  // Mise a jour de la duree totale quand les metadonnees sont chargees
+  elements.audioPlayer.addEventListener('loadedmetadata', () => {
+    if (state.currentPlayingId) {
+      updatePlayerDuration();
+    }
+  });
 }
 
 /**
@@ -218,6 +232,10 @@ function toggleAudio(voicemail) {
   // Demarrer la nouvelle lecture
   state.currentPlayingId = voicemail.id;
   elements.audioPlayer.src = audioUrl;
+
+  // Afficher le lecteur
+  showPlayer(voicemail.id);
+
   elements.audioPlayer.play()
     .then(() => {
       updatePlayButton(voicemail.id, true);
@@ -234,10 +252,111 @@ function toggleAudio(voicemail) {
 function stopAudio() {
   if (state.currentPlayingId) {
     updatePlayButton(state.currentPlayingId, false);
+    hidePlayer(state.currentPlayingId);
   }
   elements.audioPlayer.pause();
   elements.audioPlayer.src = '';
   state.currentPlayingId = null;
+}
+
+/**
+ * Affiche le lecteur pour un message
+ */
+function showPlayer(messageId) {
+  const item = document.querySelector(`.voicemail-item[data-id="${messageId}"]`);
+  if (!item) return;
+
+  const player = item.querySelector('.voicemail-player');
+  player.style.display = 'flex';
+  item.classList.add('playing');
+
+  // Ajouter le gestionnaire de clic pour le seek
+  const progressContainer = player.querySelector('.player-progress-container');
+  progressContainer.onclick = (e) => seekAudio(e, progressContainer);
+
+  // Reinitialiser l'affichage
+  const currentTime = player.querySelector('.player-current-time');
+  const totalTime = player.querySelector('.player-total-time');
+  currentTime.textContent = '0:00';
+  totalTime.textContent = '0:00';
+}
+
+/**
+ * Cache le lecteur pour un message
+ */
+function hidePlayer(messageId) {
+  const item = document.querySelector(`.voicemail-item[data-id="${messageId}"]`);
+  if (!item) return;
+
+  const player = item.querySelector('.voicemail-player');
+  player.style.display = 'none';
+  item.classList.remove('playing');
+
+  // Reinitialiser la barre de progression
+  const progressFill = player.querySelector('.player-progress-fill');
+  const progressHandle = player.querySelector('.player-progress-handle');
+  progressFill.style.width = '0%';
+  progressHandle.style.left = '0%';
+}
+
+/**
+ * Met a jour la barre de progression et le temps courant
+ */
+function updatePlayerProgress() {
+  const item = document.querySelector(`.voicemail-item[data-id="${state.currentPlayingId}"]`);
+  if (!item) return;
+
+  const player = item.querySelector('.voicemail-player');
+  const progressFill = player.querySelector('.player-progress-fill');
+  const progressHandle = player.querySelector('.player-progress-handle');
+  const currentTimeEl = player.querySelector('.player-current-time');
+
+  const { currentTime, duration } = elements.audioPlayer;
+  if (duration && !isNaN(duration)) {
+    const percent = (currentTime / duration) * 100;
+    progressFill.style.width = `${percent}%`;
+    progressHandle.style.left = `${percent}%`;
+    currentTimeEl.textContent = formatTime(currentTime);
+  }
+}
+
+/**
+ * Met a jour l'affichage de la duree totale
+ */
+function updatePlayerDuration() {
+  const item = document.querySelector(`.voicemail-item[data-id="${state.currentPlayingId}"]`);
+  if (!item) return;
+
+  const player = item.querySelector('.voicemail-player');
+  const totalTimeEl = player.querySelector('.player-total-time');
+
+  const { duration } = elements.audioPlayer;
+  if (duration && !isNaN(duration)) {
+    totalTimeEl.textContent = formatTime(duration);
+  }
+}
+
+/**
+ * Gere le clic sur la barre de progression pour le seek
+ */
+function seekAudio(event, container) {
+  const rect = container.getBoundingClientRect();
+  const clickX = event.clientX - rect.left;
+  const percent = clickX / rect.width;
+  const { duration } = elements.audioPlayer;
+
+  if (duration && !isNaN(duration)) {
+    elements.audioPlayer.currentTime = percent * duration;
+  }
+}
+
+/**
+ * Formate un temps en secondes en format mm:ss
+ */
+function formatTime(seconds) {
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
 /**

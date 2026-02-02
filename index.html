@@ -67,8 +67,18 @@
           </svg>
         </button>
       </div>
-      <div class="voicemail-audio" style="display: none;">
-        <audio controls></audio>
+      <div class="voicemail-player" style="display: none;">
+        <div class="player-progress-container">
+          <div class="player-progress-bar">
+            <div class="player-progress-fill"></div>
+            <div class="player-progress-handle"></div>
+          </div>
+        </div>
+        <div class="player-time">
+          <span class="player-current-time">0:00</span>
+          <span class="player-separator">/</span>
+          <span class="player-total-time">0:00</span>
+        </div>
       </div>
       <div class="voicemail-transcription" style="display: none;">
         <div class="transcription-status"></div>
