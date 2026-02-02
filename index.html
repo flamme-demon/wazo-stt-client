@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Messagerie Vocale</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <div id="app">
+    <header class="header">
+      <h1>Messagerie Vocale</h1>
+      <div class="header-actions">
+        <button id="refresh-btn" class="btn btn-icon" title="Rafraichir">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <div id="loading" class="loading">
+      <div class="spinner"></div>
+      <p>Chargement des messages...</p>
+    </div>
+
+    <div id="error" class="error" style="display: none;">
+      <p id="error-message"></p>
+      <button id="retry-btn" class="btn">Réessayer</button>
+    </div>
+
+    <div id="empty" class="empty" style="display: none;">
+      <svg viewBox="0 0 24 24" fill="currentColor" class="empty-icon">
+        <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V8l8 5 8-5v10zm-8-7L4 6h16l-8 5z"/>
+      </svg>
+      <p>Aucun message vocal</p>
+    </div>
+
+    <ul id="voicemail-list" class="voicemail-list" style="display: none;"></ul>
+  </div>
+
+  <template id="voicemail-item-template">
+    <li class="voicemail-item" data-id="">
+      <div class="voicemail-info">
+        <div class="voicemail-caller">
+          <span class="caller-name"></span>
+          <span class="caller-number"></span>
+        </div>
+        <div class="voicemail-meta">
+          <span class="voicemail-date"></span>
+          <span class="voicemail-duration"></span>
+          <span class="voicemail-folder"></span>
+        </div>
+      </div>
+      <div class="voicemail-actions">
+        <button class="btn btn-icon btn-play" title="Écouter">
+          <svg class="icon-play" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M8 5v14l11-7z"/>
+          </svg>
+          <svg class="icon-pause" viewBox="0 0 24 24" fill="currentColor" style="display: none;">
+            <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+          </svg>
+        </button>
+        <button class="btn btn-icon btn-transcribe" title="Transcrire">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11zm-9.5-4.5v-1h5v1h-5zm0-2v-1h5v1h-5zm0-2v-1h5v1h-5z"/>
+          </svg>
+        </button>
+      </div>
+      <div class="voicemail-audio" style="display: none;">
+        <audio controls></audio>
+      </div>
+      <div class="voicemail-transcription" style="display: none;">
+        <div class="transcription-status"></div>
+        <div class="transcription-text"></div>
+      </div>
+    </li>
+  </template>
+
+  <audio id="audio-player" style="display: none;"></audio>
+
+  <script src="https://unpkg.com/@wazo/euc-plugins-sdk@latest/dist/euc-plugins-sdk.umd.min.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>

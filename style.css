@@ -1,0 +1,298 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  background-color: #f5f5f5;
+  color: #333;
+  line-height: 1.5;
+}
+
+#app {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+/* Header */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.header h1 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.header-actions {
+  display: flex;
+  gap: 10px;
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background-color: #4a90d9;
+  color: white;
+}
+
+.btn:hover {
+  background-color: #3a7bc8;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-icon {
+  padding: 8px;
+  background-color: transparent;
+  color: #666;
+}
+
+.btn-icon:hover {
+  background-color: #e8e8e8;
+  color: #333;
+}
+
+.btn-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Loading */
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: #666;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #e0e0e0;
+  border-top-color: #4a90d9;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 15px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Error */
+.error {
+  text-align: center;
+  padding: 40px 20px;
+  background-color: #fff3f3;
+  border-radius: 8px;
+  border: 1px solid #ffcdd2;
+}
+
+.error p {
+  color: #c62828;
+  margin-bottom: 15px;
+}
+
+/* Empty */
+.empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: #999;
+}
+
+.empty-icon {
+  width: 64px;
+  height: 64px;
+  margin-bottom: 15px;
+  opacity: 0.5;
+}
+
+/* Voicemail List */
+.voicemail-list {
+  list-style: none;
+}
+
+.voicemail-item {
+  background-color: white;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  padding: 15px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.2s ease;
+}
+
+.voicemail-item:hover {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.voicemail-item.new {
+  border-left: 4px solid #4a90d9;
+}
+
+.voicemail-item > .voicemail-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+
+.voicemail-caller {
+  display: flex;
+  flex-direction: column;
+}
+
+.caller-name {
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.caller-number {
+  font-size: 0.875rem;
+  color: #666;
+}
+
+.voicemail-meta {
+  display: flex;
+  gap: 15px;
+  font-size: 0.875rem;
+  color: #888;
+}
+
+.voicemail-folder {
+  padding: 2px 8px;
+  background-color: #e8e8e8;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+.voicemail-folder.new {
+  background-color: #e3f2fd;
+  color: #1976d2;
+}
+
+/* Actions */
+.voicemail-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-play.playing {
+  color: #4a90d9;
+  background-color: #e3f2fd;
+}
+
+.btn-play.playing .icon-play {
+  display: none;
+}
+
+.btn-play.playing .icon-pause {
+  display: block;
+}
+
+.btn-transcribe.loading {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.btn-transcribe.done {
+  color: #4caf50;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Audio Player */
+.voicemail-audio {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #eee;
+}
+
+.voicemail-audio audio {
+  width: 100%;
+  height: 40px;
+}
+
+/* Transcription */
+.voicemail-transcription {
+  margin-top: 10px;
+  padding: 12px;
+  background-color: #f8f9fa;
+  border-radius: 6px;
+  border-left: 3px solid #4a90d9;
+}
+
+.transcription-status {
+  font-size: 0.875rem;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.transcription-status.error {
+  color: #c62828;
+}
+
+.transcription-status.loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.transcription-status.loading::before {
+  content: '';
+  width: 14px;
+  height: 14px;
+  border: 2px solid #e0e0e0;
+  border-top-color: #4a90d9;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.transcription-text {
+  font-size: 0.9375rem;
+  color: #333;
+  white-space: pre-wrap;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  #app {
+    padding: 15px;
+  }
+
+  .voicemail-item > .voicemail-info {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .voicemail-meta {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
