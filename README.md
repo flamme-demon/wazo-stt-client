@@ -1,14 +1,15 @@
 # Wazo Voicemail STT Client
 
-Plugin Wazo pour afficher les messages vocaux avec transcription automatique via un serveur STT.
+Plugin Wazo pour ajouter la transcription automatique aux messages vocaux via un serveur STT.
 
 ## Fonctionnalités
 
-- Affichage de la liste des messages vocaux
-- Lecture des messages vocaux (bouton play)
-- Transcription à la demande (bouton feuille)
-- Affichage du statut de transcription en temps réel
-- Cache des transcriptions existantes
+- **Intégration native** : S'injecte directement dans l'interface des messages vocaux de Wazo
+- **Bouton de transcription** : Ajouté à côté du bouton play de chaque message
+- **Panneau dépliable** : Affiche la transcription sous chaque message vocal
+- **Toggle "Transcriptions"** : Bouton pour déplier/replier toutes les transcriptions d'un coup
+- **Persistence locale** : Les transcriptions sont sauvegardées dans le localStorage
+- **Re-transcription** : Possibilité de relancer une transcription avec le bouton refresh
 
 ## Prérequis
 
@@ -67,27 +68,33 @@ php -S localhost:8080
    http://votre-serveur:8080/manifest.json
    ```
 4. Activez le plugin pour les utilisateurs souhaités
+5. Accédez à la page **Messages vocaux** de Wazo - les boutons de transcription apparaissent automatiquement
 
 ## Configuration du serveur STT
 
 Par défaut, le plugin se connecte au serveur STT sur `http://localhost:8000`.
 
-Pour modifier cette URL, vous pouvez utiliser le localStorage dans la console du navigateur :
+Pour modifier cette URL, utilisez le localStorage dans la console du navigateur :
 
 ```javascript
 localStorage.setItem('sttServerUrl', 'https://votre-serveur-stt.example.com');
 ```
 
-Puis rechargez la page du plugin.
+Puis rechargez la page.
+
+## Utilisation
+
+1. **Transcrire un message** : Cliquez sur le bouton transcription (icône document) à côté du bouton play
+2. **Voir la transcription** : Le panneau se déplie automatiquement sous le message
+3. **Tout déplier** : Utilisez le bouton "Transcriptions" en haut de la liste pour afficher toutes les transcriptions disponibles
+4. **Re-transcrire** : Cliquez sur le bouton refresh dans le panneau de transcription
 
 ## Structure du projet
 
 ```
 wazo-stt-client/
 ├── manifest.json       # Configuration du plugin Wazo
-├── index.html          # Page principale
-├── app.js              # Logique JavaScript
-├── style.css           # Styles CSS
+├── overlay.js          # Script principal (injection DOM)
 ├── icon.svg            # Icône du plugin
 ├── Dockerfile          # Image Docker
 ├── docker-compose.yml  # Configuration Docker Compose
@@ -98,24 +105,25 @@ wazo-stt-client/
 
 ## Développement
 
-### Modification du code
+### Architecture
 
-1. Modifiez les fichiers sources (app.js, style.css, index.html)
-2. Rechargez la page dans Wazo pour voir les changements
+Le plugin utilise un `backgroundScript` qui s'exécute dans le contexte de Wazo et observe le DOM pour détecter les éléments `[data-testid="voicemail-item"]`. Quand des messages vocaux sont détectés, il injecte :
+- Un bouton de transcription dans le player audio
+- Un panneau dépliable pour afficher la transcription
 
 ### Logs de débogage
 
 Ouvrez la console développeur du navigateur pour voir les logs :
-- Initialisation du plugin
-- Chargement des voicemails
-- Statut des transcriptions
+- `[STT Overlay] Initialisation...`
+- `[STT Overlay] Voicemails charges: X`
+- `[STT Overlay] Processing items: X`
 
 ## API utilisées
 
 ### API Wazo (calld)
 
 - `GET /api/calld/1.0/users/me/voicemails/messages` - Liste des messages vocaux
-- `GET /api/calld/1.0/users/me/voicemails/{voicemail_id}/messages/{message_id}/recording` - Téléchargement de l'audio
+- `GET /api/calld/1.0/users/me/voicemails/messages/{message_id}/recording` - Téléchargement de l'audio
 
 ### API STT Server
 
