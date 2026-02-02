@@ -198,7 +198,7 @@ function createVoicemailItem(voicemail) {
  */
 function toggleAudio(voicemail) {
   const { host, token } = state.context.user;
-  const audioUrl = `https://${host}/api/calld/1.0/users/me/voicemails/${voicemail.voicemail.id}/messages/${voicemail.id}/recording?token=${token}`;
+  const audioUrl = `https://${host}/api/calld/1.0/users/me/voicemails/messages/${voicemail.id}/recording?token=${token}`;
 
   // Si c'est le meme message, basculer play/pause
   if (state.currentPlayingId === voicemail.id) {
@@ -291,7 +291,7 @@ async function requestTranscription(voicemail) {
     }
 
     // 2. Soumettre la transcription
-    const audioUrl = `https://${host}/api/calld/1.0/users/me/voicemails/${voicemail.voicemail.id}/messages/${messageId}/recording?token=${token}`;
+    const audioUrl = `https://${host}/api/calld/1.0/users/me/voicemails/messages/${messageId}/recording?token=${token}`;
 
     const submitResponse = await submitTranscription(userUuid, messageId, audioUrl);
 
