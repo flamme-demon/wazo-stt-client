@@ -45,25 +45,30 @@
   async function init() {
     try {
       // Initialiser le SDK Wazo
-      // Le SDK peut être exposé sous différents noms selon la version
+      // Le SDK UMD expose Wazo.default.App ou Wazo.App selon la version
       console.log('Recherche du SDK Wazo...', {
-        WazoEucPluginsSdk: typeof window.WazoEucPluginsSdk,
         Wazo: typeof window.Wazo,
-        EucPluginsSdk: typeof window.EucPluginsSdk,
-        App: typeof window.App
+        WazoDefault: window.Wazo ? typeof window.Wazo.default : 'N/A',
+        WazoApp: window.Wazo ? typeof window.Wazo.App : 'N/A',
+        WazoDefaultApp: window.Wazo && window.Wazo.default ? typeof window.Wazo.default.App : 'N/A'
       });
 
-      const SDK = window.WazoEucPluginsSdk || window.Wazo || window.EucPluginsSdk;
-      if (!SDK || !SDK.App) {
-        // Essayer App directement si exposé globalement
-        if (typeof window.App !== 'undefined') {
-          state.app = new window.App();
-        } else {
-          throw new Error('SDK Wazo non trouvé. Vérifiez que le script est bien chargé.');
+      let AppClass = null;
+
+      // Essayer différentes façons d'accéder à App
+      if (window.Wazo) {
+        if (window.Wazo.default && window.Wazo.default.App) {
+          AppClass = window.Wazo.default.App;
+        } else if (window.Wazo.App) {
+          AppClass = window.Wazo.App;
         }
-      } else {
-        state.app = new SDK.App();
       }
+
+      if (!AppClass) {
+        throw new Error('SDK Wazo non trouvé. Vérifiez que le script est bien chargé.');
+      }
+
+      state.app = new AppClass();
       await state.app.initialize();
       state.context = state.app.getContext();
 
