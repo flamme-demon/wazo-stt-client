@@ -45,7 +45,25 @@
   async function init() {
     try {
       // Initialiser le SDK Wazo
-      state.app = new WazoEucPluginsSdk.App();
+      // Le SDK peut être exposé sous différents noms selon la version
+      console.log('Recherche du SDK Wazo...', {
+        WazoEucPluginsSdk: typeof window.WazoEucPluginsSdk,
+        Wazo: typeof window.Wazo,
+        EucPluginsSdk: typeof window.EucPluginsSdk,
+        App: typeof window.App
+      });
+
+      const SDK = window.WazoEucPluginsSdk || window.Wazo || window.EucPluginsSdk;
+      if (!SDK || !SDK.App) {
+        // Essayer App directement si exposé globalement
+        if (typeof window.App !== 'undefined') {
+          state.app = new window.App();
+        } else {
+          throw new Error('SDK Wazo non trouvé. Vérifiez que le script est bien chargé.');
+        }
+      } else {
+        state.app = new SDK.App();
+      }
       await state.app.initialize();
       state.context = state.app.getContext();
 
