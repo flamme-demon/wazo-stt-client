@@ -201,6 +201,10 @@ body {
   gap: 8px;
 }
 
+.btn-play .icon-pause {
+  display: none;
+}
+
 .btn-play.playing {
   color: #4a90d9;
   background-color: #e3f2fd;
