@@ -26,5 +26,6 @@
       "contentUrl": "./index.html",
       "icon": "./icon.svg"
     }
-  ]
+  ],
+  "backgroundScript": "./overlay.js"
 }
