@@ -18,8 +18,10 @@ const state = {
   app: null,
   context: null,
   voicemails: [],
-  voicemailsMap: new Map(), // Map pour lookup rapide par cle unique
+  voicemailsMap: new Map(),
   transcriptionPollers: new Map(),
+  transcriptionCache: new Map(), // Cache des transcriptions
+  expandedItems: new Set(), // Items avec transcription depliee
   observerTimeout: null
 };
 
@@ -37,7 +39,6 @@ const STYLES = `
   color: #666;
   cursor: pointer;
   transition: all 0.2s ease;
-  margin-right: 4px;
 }
 .stt-transcribe-btn:hover {
   background-color: rgba(0, 0, 0, 0.08);
@@ -49,44 +50,67 @@ const STYLES = `
 .stt-transcribe-btn.done {
   color: #4caf50;
 }
-.stt-transcription-container {
+.stt-transcribe-btn.expanded {
+  color: #1976d2;
+  background-color: rgba(25, 118, 210, 0.08);
+}
+
+/* Panneau de transcription depliable */
+.stt-transcription-panel {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease-out;
+  background-color: #f8f9fa;
+  margin: 0 16px;
+  border-radius: 0 0 8px 8px;
+}
+.stt-transcription-panel.expanded {
+  max-height: 200px;
+  border: 1px solid #e0e0e0;
+  border-top: none;
+}
+.stt-transcription-content {
   padding: 12px 16px;
-  background-color: #f5f5f5;
-  border-left: 3px solid #1976d2;
-  margin: 8px 16px 16px 16px;
-  border-radius: 4px;
-}
-.stt-transcription-status {
-  font-size: 12px;
-  color: #666;
-  margin-bottom: 4px;
-}
-.stt-transcription-status.loading {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.stt-transcription-status.loading::before {
-  content: '';
-  width: 12px;
-  height: 12px;
-  border: 2px solid #e0e0e0;
-  border-top-color: #1976d2;
-  border-radius: 50%;
-  animation: stt-spin 1s linear infinite;
-}
-.stt-transcription-status.error {
-  color: #d32f2f;
-}
-.stt-transcription-text {
-  font-size: 14px;
-  color: #333;
-  line-height: 1.5;
 }
 .stt-transcription-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 8px;
+}
+.stt-transcription-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #1976d2;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.stt-transcription-text {
+  font-size: 13px;
+  color: #333;
+  line-height: 1.5;
+  max-height: 120px;
+  overflow-y: auto;
+}
+.stt-transcription-text.loading {
+  color: #666;
+  font-style: italic;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.stt-transcription-text.loading::before {
+  content: '';
+  width: 14px;
+  height: 14px;
+  border: 2px solid #e0e0e0;
+  border-top-color: #1976d2;
+  border-radius: 50%;
+  animation: stt-spin 1s linear infinite;
+  flex-shrink: 0;
+}
+.stt-transcription-text.error {
+  color: #d32f2f;
 }
 .stt-retranscribe-btn {
   padding: 4px;
@@ -95,6 +119,9 @@ const STYLES = `
   cursor: pointer;
   opacity: 0.6;
   border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .stt-retranscribe-btn:hover {
   opacity: 1;
@@ -113,7 +140,7 @@ const STYLES = `
 `;
 
 // Icone SVG pour le bouton transcription
-const TRANSCRIBE_ICON = `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+const TRANSCRIBE_ICON = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
   <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11zm-9.5-4.5v-1h5v1h-5zm0-2v-1h5v1h-5zm0-2v-1h5v1h-5z"/>
 </svg>`;
 
@@ -186,7 +213,6 @@ async function loadVoicemails() {
     state.voicemails = data.items || [];
 
     // Creer un map pour lookup rapide
-    // Cle: "callerNumber|duration" pour matcher avec le DOM
     state.voicemailsMap.clear();
     for (const vm of state.voicemails) {
       const key = createVoicemailKey(vm.caller_id_num, vm.duration);
@@ -212,7 +238,6 @@ function createVoicemailKey(callerNum, duration) {
  */
 function startDOMObserver() {
   const observer = new MutationObserver(() => {
-    // Debounce pour eviter trop d'appels
     if (state.observerTimeout) {
       clearTimeout(state.observerTimeout);
     }
@@ -239,20 +264,22 @@ function processVoicemailItems() {
   items.forEach(item => {
     if (item.dataset.sttProcessed) return;
 
-    // Extraire les infos du DOM
     const callerNum = extractCallerNumber(item);
     const duration = extractDuration(item);
 
     if (!callerNum && !duration) return;
 
-    // Trouver le voicemail correspondant
     const key = createVoicemailKey(callerNum, duration);
     const voicemail = state.voicemailsMap.get(key);
 
     if (voicemail) {
       injectTranscribeButton(item, voicemail);
+      injectTranscriptionPanel(item, voicemail);
       item.dataset.sttProcessed = 'true';
       item.dataset.sttMessageId = voicemail.id;
+
+      // Verifier si une transcription existe deja
+      checkExistingTranscription(voicemail, item);
     }
   });
 }
@@ -261,14 +288,11 @@ function processVoicemailItems() {
  * Extrait le numero de l'appelant du DOM
  */
 function extractCallerNumber(item) {
-  // Le numero est dans le texte "SDA VIP - 0973445936"
   const nameEl = item.querySelector('[data-testid="contact-card-name"]');
   if (nameEl) {
     const text = nameEl.textContent || '';
-    // Extraire le numero (derniere partie apres " - ")
     const match = text.match(/(\d{10})$/);
     if (match) return match[1];
-    // Ou juste des chiffres
     const numMatch = text.match(/(\d+)$/);
     if (numMatch) return numMatch[1];
   }
@@ -279,7 +303,6 @@ function extractCallerNumber(item) {
  * Extrait la duree du DOM (en secondes)
  */
 function extractDuration(item) {
-  // La duree est affichee comme "00:10"
   const durationEl = item.querySelector('.voicemail-player p, [class*="voicemail-player"] p');
   if (durationEl) {
     const text = durationEl.textContent || '';
@@ -295,31 +318,93 @@ function extractDuration(item) {
  * Injecte le bouton de transcription dans un element voicemail
  */
 function injectTranscribeButton(item, voicemail) {
-  // Trouver le bouton play
   const playBtn = item.querySelector('[data-testid="audio-player-play"]');
   if (!playBtn) return;
 
-  // Verifier si deja injecte
   if (item.querySelector('.stt-transcribe-btn')) return;
 
-  // Creer le bouton
   const btn = document.createElement('button');
   btn.className = 'stt-transcribe-btn';
   btn.title = 'Transcrire';
   btn.innerHTML = TRANSCRIBE_ICON;
   btn.dataset.messageId = voicemail.id;
 
-  // Ajouter le gestionnaire de clic
   btn.addEventListener('click', (e) => {
     e.stopPropagation();
-    requestTranscription(voicemail, item);
+    handleTranscribeClick(voicemail, item);
   });
 
-  // Inserer avant le bouton play
+  // Inserer AVANT le bouton play
   playBtn.parentNode.insertBefore(btn, playBtn);
+}
 
-  // Verifier si une transcription existe deja
-  checkExistingTranscription(voicemail, item);
+/**
+ * Injecte le panneau de transcription (cache par defaut)
+ */
+function injectTranscriptionPanel(item, voicemail) {
+  if (item.querySelector('.stt-transcription-panel')) return;
+
+  const panel = document.createElement('div');
+  panel.className = 'stt-transcription-panel';
+  panel.dataset.messageId = voicemail.id;
+  panel.innerHTML = `
+    <div class="stt-transcription-content">
+      <div class="stt-transcription-header">
+        <span class="stt-transcription-label">Transcription</span>
+        <button class="stt-retranscribe-btn" title="Re-transcrire" style="display: none;">
+          ${REFRESH_ICON}
+        </button>
+      </div>
+      <div class="stt-transcription-text"></div>
+    </div>
+  `;
+
+  // Ajouter gestionnaire pour re-transcrire
+  const retranscribeBtn = panel.querySelector('.stt-retranscribe-btn');
+  retranscribeBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    requestTranscription(voicemail, item, true);
+  });
+
+  // Inserer apres la carte MUI
+  const card = item.querySelector('.MuiCard-root');
+  if (card) {
+    card.parentNode.insertBefore(panel, card.nextSibling);
+  } else {
+    item.appendChild(panel);
+  }
+}
+
+/**
+ * Gere le clic sur le bouton transcription
+ */
+function handleTranscribeClick(voicemail, item) {
+  const messageId = voicemail.id;
+  const btn = item.querySelector('.stt-transcribe-btn');
+  const panel = item.querySelector('.stt-transcription-panel');
+
+  // Si deja expanded, toggle fermeture
+  if (state.expandedItems.has(messageId)) {
+    panel.classList.remove('expanded');
+    btn.classList.remove('expanded');
+    state.expandedItems.delete(messageId);
+    return;
+  }
+
+  // Ouvrir le panneau
+  panel.classList.add('expanded');
+  btn.classList.add('expanded');
+  state.expandedItems.add(messageId);
+
+  // Si on a deja une transcription en cache, l'afficher
+  if (state.transcriptionCache.has(messageId)) {
+    const cached = state.transcriptionCache.get(messageId);
+    updatePanelContent(item, messageId, cached.status, cached.text);
+    return;
+  }
+
+  // Sinon, lancer la transcription
+  requestTranscription(voicemail, item, false);
 }
 
 /**
@@ -331,7 +416,7 @@ async function checkExistingTranscription(voicemail, item) {
     const lookup = await lookupTranscription(userUuid, voicemail.id);
 
     if (lookup.found && lookup.status === 'completed') {
-      showTranscription(item, voicemail.id, lookup.text);
+      state.transcriptionCache.set(voicemail.id, { status: 'completed', text: lookup.text });
       const btn = item.querySelector('.stt-transcribe-btn');
       if (btn) btn.classList.add('done');
     }
@@ -347,7 +432,6 @@ async function requestTranscription(voicemail, item, force = false) {
   const { uuid: userUuid, host, token } = state.context.user;
   const messageId = voicemail.id;
 
-  // Verifier si deja en cours
   if (state.transcriptionPollers.has(messageId)) return;
 
   const btn = item.querySelector('.stt-transcribe-btn');
@@ -359,12 +443,15 @@ async function requestTranscription(voicemail, item, force = false) {
     btn.classList.add('loading');
   }
 
+  // Afficher le statut loading
+  updatePanelContent(item, messageId, 'loading', 'Transcription en cours...');
+
   try {
-    // Verifier si existe deja (sauf si force)
     if (!force) {
       const lookup = await lookupTranscription(userUuid, messageId);
       if (lookup.found && lookup.status === 'completed') {
-        showTranscription(item, messageId, lookup.text);
+        state.transcriptionCache.set(messageId, { status: 'completed', text: lookup.text });
+        updatePanelContent(item, messageId, 'completed', lookup.text);
         if (btn) {
           btn.classList.remove('loading');
           btn.classList.add('done');
@@ -372,19 +459,18 @@ async function requestTranscription(voicemail, item, force = false) {
         return;
       }
       if (lookup.found && (lookup.status === 'queued' || lookup.status === 'processing')) {
-        showTranscriptionStatus(item, messageId, 'loading', 'Transcription en cours...');
         startPolling(lookup.job_id, messageId, item);
         return;
       }
     }
 
-    // Soumettre la transcription
     const audioUrl = `https://${host}/api/calld/1.0/users/me/voicemails/messages/${messageId}/recording?token=${token}`;
     const submitResponse = await submitTranscription(userUuid, messageId, audioUrl, force);
 
     if (submitResponse.cached && submitResponse.status === 'completed') {
       const jobStatus = await getJobStatus(submitResponse.job_id);
-      showTranscription(item, messageId, jobStatus.text);
+      state.transcriptionCache.set(messageId, { status: 'completed', text: jobStatus.text });
+      updatePanelContent(item, messageId, 'completed', jobStatus.text);
       if (btn) {
         btn.classList.remove('loading');
         btn.classList.add('done');
@@ -393,15 +479,46 @@ async function requestTranscription(voicemail, item, force = false) {
       return;
     }
 
-    // Demarrer le polling
-    showTranscriptionStatus(item, messageId, 'loading', 'Transcription en cours...');
     startPolling(submitResponse.job_id, messageId, item);
 
   } catch (error) {
     console.error('[STT Overlay] Erreur transcription:', error);
-    showTranscriptionStatus(item, messageId, 'error', 'Erreur lors de la transcription');
+    updatePanelContent(item, messageId, 'error', 'Erreur lors de la transcription');
     if (btn) btn.classList.remove('loading');
     if (retranscribeBtn) retranscribeBtn.classList.remove('loading');
+  }
+}
+
+/**
+ * Met a jour le contenu du panneau de transcription
+ */
+function updatePanelContent(item, messageId, status, text) {
+  const panel = item.querySelector('.stt-transcription-panel');
+  if (!panel) return;
+
+  const textEl = panel.querySelector('.stt-transcription-text');
+  const retranscribeBtn = panel.querySelector('.stt-retranscribe-btn');
+
+  textEl.className = 'stt-transcription-text';
+
+  switch (status) {
+    case 'loading':
+      textEl.classList.add('loading');
+      textEl.textContent = text;
+      retranscribeBtn.style.display = 'none';
+      break;
+
+    case 'completed':
+      textEl.textContent = text || '(Aucun texte detecte)';
+      retranscribeBtn.style.display = 'flex';
+      retranscribeBtn.classList.remove('loading');
+      break;
+
+    case 'error':
+      textEl.classList.add('error');
+      textEl.textContent = text;
+      retranscribeBtn.style.display = 'none';
+      break;
   }
 }
 
@@ -450,12 +567,12 @@ async function getJobStatus(jobId) {
  */
 function startPolling(jobId, messageId, item) {
   const startTime = Date.now();
+  const btn = item.querySelector('.stt-transcribe-btn');
 
   const poll = async () => {
     if (Date.now() - startTime > CONFIG.pollTimeout) {
       state.transcriptionPollers.delete(messageId);
-      showTranscriptionStatus(item, messageId, 'error', 'Timeout de la transcription');
-      const btn = item.querySelector('.stt-transcribe-btn');
+      updatePanelContent(item, messageId, 'error', 'Timeout de la transcription');
       if (btn) btn.classList.remove('loading');
       return;
     }
@@ -466,8 +583,8 @@ function startPolling(jobId, messageId, item) {
       switch (status.status) {
         case 'completed':
           state.transcriptionPollers.delete(messageId);
-          showTranscription(item, messageId, status.text);
-          const btn = item.querySelector('.stt-transcribe-btn');
+          state.transcriptionCache.set(messageId, { status: 'completed', text: status.text });
+          updatePanelContent(item, messageId, 'completed', status.text);
           if (btn) {
             btn.classList.remove('loading');
             btn.classList.add('done');
@@ -476,18 +593,17 @@ function startPolling(jobId, messageId, item) {
 
         case 'failed':
           state.transcriptionPollers.delete(messageId);
-          showTranscriptionStatus(item, messageId, 'error', status.error || 'Echec');
-          const failBtn = item.querySelector('.stt-transcribe-btn');
-          if (failBtn) failBtn.classList.remove('loading');
+          updatePanelContent(item, messageId, 'error', status.error || 'Echec');
+          if (btn) btn.classList.remove('loading');
           break;
 
         case 'queued':
-          showTranscriptionStatus(item, messageId, 'loading', `File d'attente (${status.queue_position})`);
+          updatePanelContent(item, messageId, 'loading', `File d'attente (${status.queue_position})`);
           state.transcriptionPollers.set(messageId, setTimeout(poll, CONFIG.pollInterval));
           break;
 
         case 'processing':
-          showTranscriptionStatus(item, messageId, 'loading', 'Transcription en cours...');
+          updatePanelContent(item, messageId, 'loading', 'Transcription en cours...');
           state.transcriptionPollers.set(messageId, setTimeout(poll, CONFIG.pollInterval));
           break;
 
@@ -496,78 +612,12 @@ function startPolling(jobId, messageId, item) {
       }
     } catch (error) {
       state.transcriptionPollers.delete(messageId);
-      showTranscriptionStatus(item, messageId, 'error', 'Erreur de communication');
-      const btn = item.querySelector('.stt-transcribe-btn');
+      updatePanelContent(item, messageId, 'error', 'Erreur de communication');
       if (btn) btn.classList.remove('loading');
     }
   };
 
   poll();
-}
-
-/**
- * Affiche le statut de transcription
- */
-function showTranscriptionStatus(item, messageId, status, text) {
-  let container = item.querySelector('.stt-transcription-container');
-
-  if (!container) {
-    container = document.createElement('div');
-    container.className = 'stt-transcription-container';
-    container.dataset.messageId = messageId;
-
-    // Trouver ou inserer (apres le contenu principal de la carte)
-    const cardContent = item.querySelector('[data-testid="wideActivityListItem"]');
-    if (cardContent) {
-      cardContent.parentNode.insertBefore(container, cardContent.nextSibling);
-    } else {
-      item.appendChild(container);
-    }
-  }
-
-  container.innerHTML = `
-    <div class="stt-transcription-status ${status}">${text}</div>
-    <div class="stt-transcription-text"></div>
-  `;
-}
-
-/**
- * Affiche la transcription complete
- */
-function showTranscription(item, messageId, text) {
-  let container = item.querySelector('.stt-transcription-container');
-
-  if (!container) {
-    container = document.createElement('div');
-    container.className = 'stt-transcription-container';
-    container.dataset.messageId = messageId;
-
-    const cardContent = item.querySelector('[data-testid="wideActivityListItem"]');
-    if (cardContent) {
-      cardContent.parentNode.insertBefore(container, cardContent.nextSibling);
-    } else {
-      item.appendChild(container);
-    }
-  }
-
-  // Trouver le voicemail pour le bouton re-transcrire
-  const voicemail = state.voicemails.find(vm => vm.id === messageId);
-
-  container.innerHTML = `
-    <div class="stt-transcription-header">
-      <div class="stt-transcription-status">Transcription</div>
-      <button class="stt-retranscribe-btn" title="Re-transcrire">${REFRESH_ICON}</button>
-    </div>
-    <div class="stt-transcription-text">${text || '(Aucun texte detecte)'}</div>
-  `;
-
-  // Ajouter le gestionnaire pour re-transcrire
-  const retranscribeBtn = container.querySelector('.stt-retranscribe-btn');
-  if (retranscribeBtn && voicemail) {
-    retranscribeBtn.addEventListener('click', () => {
-      requestTranscription(voicemail, item, true);
-    });
-  }
 }
 
 // Demarrer l'initialisation
