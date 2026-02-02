@@ -10,7 +10,7 @@ const CONFIG = {
   sttServerUrl: localStorage.getItem('sttServerUrl') || 'http://localhost:8000',
   pollInterval: 2000,
   pollTimeout: 120000,
-  observerDebounce: 500
+  observerDebounce: 300
 };
 
 // Etat global
@@ -18,11 +18,11 @@ const state = {
   app: null,
   context: null,
   voicemails: [],
-  voicemailsMap: new Map(),
   transcriptionPollers: new Map(),
-  transcriptionCache: new Map(), // Cache des transcriptions
-  expandedItems: new Set(), // Items avec transcription depliee
-  observerTimeout: null
+  transcriptionCache: new Map(),
+  expandedItems: new Set(),
+  observerTimeout: null,
+  processedIndex: 0
 };
 
 // Styles CSS a injecter
@@ -39,6 +39,7 @@ const STYLES = `
   color: #666;
   cursor: pointer;
   transition: all 0.2s ease;
+  margin-right: 2px;
 }
 .stt-transcribe-btn:hover {
   background-color: rgba(0, 0, 0, 0.08);
@@ -59,18 +60,16 @@ const STYLES = `
 .stt-transcription-panel {
   max-height: 0;
   overflow: hidden;
-  transition: max-height 0.3s ease-out;
-  background-color: #f8f9fa;
-  margin: 0 16px;
-  border-radius: 0 0 8px 8px;
+  transition: max-height 0.3s ease-out, padding 0.3s ease-out;
+  background-color: #fafafa;
+  border-radius: 8px;
+  margin: 0;
 }
 .stt-transcription-panel.expanded {
-  max-height: 200px;
-  border: 1px solid #e0e0e0;
-  border-top: none;
-}
-.stt-transcription-content {
+  max-height: 300px;
   padding: 12px 16px;
+  margin-top: 8px;
+  border: 1px solid #e0e0e0;
 }
 .stt-transcription-header {
   display: flex;
@@ -88,8 +87,8 @@ const STYLES = `
 .stt-transcription-text {
   font-size: 13px;
   color: #333;
-  line-height: 1.5;
-  max-height: 120px;
+  line-height: 1.6;
+  max-height: 200px;
   overflow-y: auto;
 }
 .stt-transcription-text.loading {
@@ -122,6 +121,7 @@ const STYLES = `
   display: flex;
   align-items: center;
   justify-content: center;
+  color: #666;
 }
 .stt-retranscribe-btn:hover {
   opacity: 1;
@@ -170,7 +170,7 @@ async function init() {
     // Demarrer l'observation du DOM
     startDOMObserver();
 
-    console.log('[STT Overlay] Plugin pret');
+    console.log('[STT Overlay] Plugin pret, voicemails:', state.voicemails.length);
 
   } catch (error) {
     console.error('[STT Overlay] Erreur initialisation:', error);
@@ -212,25 +212,11 @@ async function loadVoicemails() {
     const data = await response.json();
     state.voicemails = data.items || [];
 
-    // Creer un map pour lookup rapide
-    state.voicemailsMap.clear();
-    for (const vm of state.voicemails) {
-      const key = createVoicemailKey(vm.caller_id_num, vm.duration);
-      state.voicemailsMap.set(key, vm);
-    }
-
     console.log('[STT Overlay] Voicemails charges:', state.voicemails.length);
 
   } catch (error) {
     console.error('[STT Overlay] Erreur chargement voicemails:', error);
   }
-}
-
-/**
- * Cree une cle unique pour identifier un voicemail
- */
-function createVoicemailKey(callerNum, duration) {
-  return `${callerNum || 'unknown'}|${duration}`;
 }
 
 /**
@@ -252,75 +238,62 @@ function startDOMObserver() {
   });
 
   // Traiter les elements deja presents
-  processVoicemailItems();
+  setTimeout(() => processVoicemailItems(), 500);
 }
 
 /**
  * Traite les elements voicemail dans le DOM
+ * Utilise l'index de position pour matcher avec l'API (meme ordre)
  */
 function processVoicemailItems() {
   const items = document.querySelectorAll('[data-testid="voicemail-item"]');
 
-  items.forEach(item => {
-    if (item.dataset.sttProcessed) return;
+  console.log('[STT Overlay] Processing items:', items.length, 'voicemails disponibles:', state.voicemails.length);
 
-    const callerNum = extractCallerNumber(item);
-    const duration = extractDuration(item);
+  items.forEach((item, index) => {
+    // Skip si deja traite
+    if (item.dataset.sttProcessed === 'true') return;
 
-    if (!callerNum && !duration) return;
+    // Utiliser l'index pour matcher (les voicemails sont dans le meme ordre)
+    const voicemail = state.voicemails[index];
 
-    const key = createVoicemailKey(callerNum, duration);
-    const voicemail = state.voicemailsMap.get(key);
-
-    if (voicemail) {
-      injectTranscribeButton(item, voicemail);
-      injectTranscriptionPanel(item, voicemail);
-      item.dataset.sttProcessed = 'true';
-      item.dataset.sttMessageId = voicemail.id;
-
-      // Verifier si une transcription existe deja
-      checkExistingTranscription(voicemail, item);
+    if (!voicemail) {
+      console.log('[STT Overlay] Pas de voicemail pour index:', index);
+      return;
     }
+
+    console.log('[STT Overlay] Injection pour voicemail:', voicemail.id, 'index:', index);
+
+    injectTranscribeButton(item, voicemail);
+    injectTranscriptionPanel(item, voicemail);
+    item.dataset.sttProcessed = 'true';
+    item.dataset.sttMessageId = voicemail.id;
+    item.dataset.sttIndex = index.toString();
+
+    // Verifier si une transcription existe deja
+    checkExistingTranscription(voicemail, item);
   });
-}
-
-/**
- * Extrait le numero de l'appelant du DOM
- */
-function extractCallerNumber(item) {
-  const nameEl = item.querySelector('[data-testid="contact-card-name"]');
-  if (nameEl) {
-    const text = nameEl.textContent || '';
-    const match = text.match(/(\d{10})$/);
-    if (match) return match[1];
-    const numMatch = text.match(/(\d+)$/);
-    if (numMatch) return numMatch[1];
-  }
-  return null;
-}
-
-/**
- * Extrait la duree du DOM (en secondes)
- */
-function extractDuration(item) {
-  const durationEl = item.querySelector('.voicemail-player p, [class*="voicemail-player"] p');
-  if (durationEl) {
-    const text = durationEl.textContent || '';
-    const match = text.match(/(\d{2}):(\d{2})/);
-    if (match) {
-      return parseInt(match[1]) * 60 + parseInt(match[2]);
-    }
-  }
-  return null;
 }
 
 /**
  * Injecte le bouton de transcription dans un element voicemail
  */
 function injectTranscribeButton(item, voicemail) {
-  const playBtn = item.querySelector('[data-testid="audio-player-play"]');
-  if (!playBtn) return;
+  // Trouver le conteneur du player audio
+  const audioPlayer = item.querySelector('[data-testid="audio-player-stopped"], [data-testid="audio-player-playing"]');
+  if (!audioPlayer) {
+    console.log('[STT Overlay] Audio player non trouve');
+    return;
+  }
 
+  // Trouver le bouton play
+  const playBtn = audioPlayer.querySelector('[data-testid="audio-player-play"]');
+  if (!playBtn) {
+    console.log('[STT Overlay] Bouton play non trouve');
+    return;
+  }
+
+  // Verifier si deja injecte
   if (item.querySelector('.stt-transcribe-btn')) return;
 
   const btn = document.createElement('button');
@@ -331,11 +304,14 @@ function injectTranscribeButton(item, voicemail) {
 
   btn.addEventListener('click', (e) => {
     e.stopPropagation();
+    e.preventDefault();
     handleTranscribeClick(voicemail, item);
   });
 
-  // Inserer AVANT le bouton play
+  // Inserer AVANT le bouton play dans le meme conteneur
   playBtn.parentNode.insertBefore(btn, playBtn);
+
+  console.log('[STT Overlay] Bouton injecte pour:', voicemail.id);
 }
 
 /**
@@ -348,31 +324,25 @@ function injectTranscriptionPanel(item, voicemail) {
   panel.className = 'stt-transcription-panel';
   panel.dataset.messageId = voicemail.id;
   panel.innerHTML = `
-    <div class="stt-transcription-content">
-      <div class="stt-transcription-header">
-        <span class="stt-transcription-label">Transcription</span>
-        <button class="stt-retranscribe-btn" title="Re-transcrire" style="display: none;">
-          ${REFRESH_ICON}
-        </button>
-      </div>
-      <div class="stt-transcription-text"></div>
+    <div class="stt-transcription-header">
+      <span class="stt-transcription-label">Transcription</span>
+      <button class="stt-retranscribe-btn" title="Re-transcrire" style="display: none;">
+        ${REFRESH_ICON}
+      </button>
     </div>
+    <div class="stt-transcription-text"></div>
   `;
 
   // Ajouter gestionnaire pour re-transcrire
   const retranscribeBtn = panel.querySelector('.stt-retranscribe-btn');
   retranscribeBtn.addEventListener('click', (e) => {
     e.stopPropagation();
+    e.preventDefault();
     requestTranscription(voicemail, item, true);
   });
 
-  // Inserer apres la carte MUI
-  const card = item.querySelector('.MuiCard-root');
-  if (card) {
-    card.parentNode.insertBefore(panel, card.nextSibling);
-  } else {
-    item.appendChild(panel);
-  }
+  // Inserer a la fin de l'element voicemail-item (sous la carte)
+  item.appendChild(panel);
 }
 
 /**
