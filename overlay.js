@@ -386,7 +386,11 @@ function injectExpandAllToggle() {
 
   // Trouver le conteneur de la liste des voicemails
   const firstItem = document.querySelector('[data-testid="voicemail-item"]');
-  if (!firstItem || !firstItem.parentElement) return;
+  if (!firstItem) return;
+
+  // Remonter au conteneur parent de la liste (generalement 2 niveaux au-dessus)
+  const listContainer = firstItem.parentElement;
+  if (!listContainer || !listContainer.parentElement) return;
 
   const container = document.createElement('div');
   container.className = 'stt-expand-all-container';
@@ -400,8 +404,8 @@ function injectExpandAllToggle() {
   const btn = container.querySelector('.stt-expand-all-btn');
   btn.addEventListener('click', toggleExpandAll);
 
-  // Inserer avant le premier voicemail
-  firstItem.parentElement.insertBefore(container, firstItem);
+  // Inserer avant le conteneur de la liste des voicemails
+  listContainer.parentElement.insertBefore(container, listContainer);
 }
 
 /**
@@ -584,6 +588,10 @@ async function checkExistingTranscription(voicemail, item) {
     if (cached.status === 'completed') {
       const btn = item.querySelector('.stt-transcribe-btn');
       if (btn) btn.classList.add('done');
+      // Si mode "tout deplier" est actif, ouvrir ce panneau
+      if (state.allExpanded) {
+        expandPanel(voicemail.id, item);
+      }
       return;
     }
   }
@@ -598,6 +606,10 @@ async function checkExistingTranscription(voicemail, item) {
       saveTranscriptionsToStorage();
       const btn = item.querySelector('.stt-transcribe-btn');
       if (btn) btn.classList.add('done');
+      // Si mode "tout deplier" est actif, ouvrir ce panneau
+      if (state.allExpanded) {
+        expandPanel(voicemail.id, item);
+      }
     }
   } catch (error) {
     // Ignorer silencieusement
