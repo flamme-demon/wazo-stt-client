@@ -52,13 +52,6 @@ const STYLES = `
 }
 
 /* Toggle pour deplier toutes les transcriptions */
-.stt-expand-all-container {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  margin-bottom: 8px;
-}
 .stt-expand-all-btn {
   display: inline-flex;
   align-items: center;
@@ -71,6 +64,7 @@ const STYLES = `
   font-size: 13px;
   cursor: pointer;
   transition: all 0.2s ease;
+  margin-right: auto;
 }
 .stt-expand-all-btn:hover {
   background-color: #f5f5f5;
@@ -382,30 +376,23 @@ function processVoicemailItems() {
  * Injecte le bouton toggle "Tout deplier"
  */
 function injectExpandAllToggle() {
-  if (document.querySelector('.stt-expand-all-container')) return;
+  if (document.querySelector('.stt-expand-all-btn')) return;
 
-  // Trouver le conteneur de la liste des voicemails
-  const firstItem = document.querySelector('[data-testid="voicemail-item"]');
-  if (!firstItem) return;
+  // Trouver le bouton filtre pour s'inserer dans le meme conteneur
+  const filterBtn = document.querySelector('[data-testid="mailbox-filter"]');
+  if (!filterBtn || !filterBtn.parentElement) return;
 
-  // Remonter au conteneur parent de la liste (generalement 2 niveaux au-dessus)
-  const listContainer = firstItem.parentElement;
-  if (!listContainer || !listContainer.parentElement) return;
+  const filterContainer = filterBtn.parentElement;
 
-  const container = document.createElement('div');
-  container.className = 'stt-expand-all-container';
-  container.innerHTML = `
-    <button class="stt-expand-all-btn" title="Deplier/replier toutes les transcriptions">
-      ${EXPAND_ICON}
-      <span>Transcriptions</span>
-    </button>
-  `;
+  const btn = document.createElement('button');
+  btn.className = 'stt-expand-all-btn';
+  btn.title = 'Deplier/replier toutes les transcriptions';
+  btn.innerHTML = `${EXPAND_ICON}<span>Transcriptions</span>`;
 
-  const btn = container.querySelector('.stt-expand-all-btn');
   btn.addEventListener('click', toggleExpandAll);
 
-  // Inserer avant le conteneur de la liste des voicemails
-  listContainer.parentElement.insertBefore(container, listContainer);
+  // Inserer au debut du conteneur (a gauche du filtre)
+  filterContainer.insertBefore(btn, filterContainer.firstChild);
 }
 
 /**
