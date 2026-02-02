@@ -22,8 +22,12 @@ const state = {
   transcriptionCache: new Map(),
   expandedItems: new Set(),
   observerTimeout: null,
-  processedIndex: 0
+  processedIndex: 0,
+  allExpanded: false
 };
+
+// Cle localStorage pour la persistence
+const STORAGE_KEY = 'stt-transcriptions';
 
 // Styles CSS a injecter
 const STYLES = `
@@ -36,8 +40,8 @@ const STYLES = `
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border: none;
   border-radius: 50%;
   background-color: transparent;
@@ -45,6 +49,44 @@ const STYLES = `
   cursor: pointer;
   transition: all 0.2s ease;
   margin: 0 12px;
+}
+
+/* Toggle pour deplier toutes les transcriptions */
+.stt-expand-all-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  margin-bottom: 8px;
+}
+.stt-expand-all-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  background-color: #fff;
+  color: #666;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.stt-expand-all-btn:hover {
+  background-color: #f5f5f5;
+  border-color: #1976d2;
+  color: #1976d2;
+}
+.stt-expand-all-btn.expanded {
+  background-color: rgba(25, 118, 210, 0.08);
+  border-color: #1976d2;
+  color: #1976d2;
+}
+.stt-expand-all-btn svg {
+  transition: transform 0.2s ease;
+}
+.stt-expand-all-btn.expanded svg {
+  transform: rotate(180deg);
 }
 .stt-transcribe-btn:hover {
   background-color: rgba(0, 0, 0, 0.08);
@@ -149,12 +191,16 @@ const STYLES = `
 `;
 
 // Icone SVG pour le bouton transcription
-const TRANSCRIBE_ICON = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+const TRANSCRIBE_ICON = `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
   <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11zm-9.5-4.5v-1h5v1h-5zm0-2v-1h5v1h-5zm0-2v-1h5v1h-5z"/>
 </svg>`;
 
 const REFRESH_ICON = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
   <path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+</svg>`;
+
+const EXPAND_ICON = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+  <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
 </svg>`;
 
 /**
@@ -170,6 +216,9 @@ async function init() {
 
     console.log('[STT Overlay] SDK initialise', state.context);
 
+    // Charger les transcriptions depuis localStorage
+    loadTranscriptionsFromStorage();
+
     // Injecter les styles CSS
     injectStyles();
 
@@ -183,6 +232,41 @@ async function init() {
 
   } catch (error) {
     console.error('[STT Overlay] Erreur initialisation:', error);
+  }
+}
+
+/**
+ * Charge les transcriptions depuis localStorage
+ */
+function loadTranscriptionsFromStorage() {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const data = JSON.parse(stored);
+      Object.entries(data).forEach(([messageId, transcription]) => {
+        state.transcriptionCache.set(messageId, transcription);
+      });
+      console.log('[STT Overlay] Transcriptions chargees depuis localStorage:', state.transcriptionCache.size);
+    }
+  } catch (error) {
+    console.error('[STT Overlay] Erreur chargement localStorage:', error);
+  }
+}
+
+/**
+ * Sauvegarde les transcriptions dans localStorage
+ */
+function saveTranscriptionsToStorage() {
+  try {
+    const data = {};
+    state.transcriptionCache.forEach((value, key) => {
+      if (value.status === 'completed') {
+        data[key] = value;
+      }
+    });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch (error) {
+    console.error('[STT Overlay] Erreur sauvegarde localStorage:', error);
   }
 }
 
@@ -259,6 +343,11 @@ function processVoicemailItems() {
 
   console.log('[STT Overlay] Processing items:', items.length, 'voicemails disponibles:', state.voicemails.length);
 
+  // Injecter le bouton toggle si des voicemails sont presents
+  if (items.length > 0) {
+    injectExpandAllToggle();
+  }
+
   items.forEach((item, index) => {
     // Skip si deja traite
     if (item.dataset.sttProcessed === 'true') return;
@@ -279,9 +368,101 @@ function processVoicemailItems() {
     item.dataset.sttMessageId = voicemail.id;
     item.dataset.sttIndex = index.toString();
 
-    // Verifier si une transcription existe deja
+    // Verifier si une transcription existe deja (d'abord localStorage, puis API)
     checkExistingTranscription(voicemail, item);
+
+    // Si mode "tout deplier" est actif, ouvrir ce panneau
+    if (state.allExpanded && state.transcriptionCache.has(voicemail.id)) {
+      expandPanel(voicemail.id, item);
+    }
   });
+}
+
+/**
+ * Injecte le bouton toggle "Tout deplier"
+ */
+function injectExpandAllToggle() {
+  if (document.querySelector('.stt-expand-all-container')) return;
+
+  // Trouver le conteneur de la liste des voicemails
+  const firstItem = document.querySelector('[data-testid="voicemail-item"]');
+  if (!firstItem || !firstItem.parentElement) return;
+
+  const container = document.createElement('div');
+  container.className = 'stt-expand-all-container';
+  container.innerHTML = `
+    <button class="stt-expand-all-btn" title="Deplier/replier toutes les transcriptions">
+      ${EXPAND_ICON}
+      <span>Transcriptions</span>
+    </button>
+  `;
+
+  const btn = container.querySelector('.stt-expand-all-btn');
+  btn.addEventListener('click', toggleExpandAll);
+
+  // Inserer avant le premier voicemail
+  firstItem.parentElement.insertBefore(container, firstItem);
+}
+
+/**
+ * Toggle deplier/replier toutes les transcriptions
+ */
+function toggleExpandAll() {
+  state.allExpanded = !state.allExpanded;
+
+  const btn = document.querySelector('.stt-expand-all-btn');
+  if (btn) {
+    btn.classList.toggle('expanded', state.allExpanded);
+  }
+
+  const items = document.querySelectorAll('[data-testid="voicemail-item"]');
+  items.forEach(item => {
+    const messageId = item.dataset.sttMessageId;
+    if (!messageId) return;
+
+    if (state.allExpanded) {
+      // Ouvrir seulement si une transcription existe
+      if (state.transcriptionCache.has(messageId)) {
+        expandPanel(messageId, item);
+      }
+    } else {
+      collapsePanel(messageId, item);
+    }
+  });
+}
+
+/**
+ * Deplie un panneau de transcription
+ */
+function expandPanel(messageId, item) {
+  const btn = item.querySelector('.stt-transcribe-btn');
+  const panel = item.querySelector('.stt-transcription-panel');
+
+  if (panel && !panel.classList.contains('expanded')) {
+    panel.classList.add('expanded');
+    if (btn) btn.classList.add('expanded');
+    state.expandedItems.add(messageId);
+
+    // Afficher le contenu cache
+    const cached = state.transcriptionCache.get(messageId);
+    if (cached) {
+      updatePanelContent(item, messageId, cached.status, cached.text);
+    }
+  }
+}
+
+/**
+ * Replie un panneau de transcription
+ */
+function collapsePanel(messageId, item) {
+  const btn = item.querySelector('.stt-transcribe-btn');
+  const panel = item.querySelector('.stt-transcription-panel');
+
+  if (panel && panel.classList.contains('expanded')) {
+    panel.classList.remove('expanded');
+    if (btn) btn.classList.remove('expanded');
+    state.expandedItems.delete(messageId);
+  }
 }
 
 /**
@@ -397,12 +578,24 @@ function handleTranscribeClick(voicemail, item) {
  * Verifie si une transcription existe deja
  */
 async function checkExistingTranscription(voicemail, item) {
+  // D'abord verifier si on a deja en cache (localStorage)
+  if (state.transcriptionCache.has(voicemail.id)) {
+    const cached = state.transcriptionCache.get(voicemail.id);
+    if (cached.status === 'completed') {
+      const btn = item.querySelector('.stt-transcribe-btn');
+      if (btn) btn.classList.add('done');
+      return;
+    }
+  }
+
+  // Sinon, verifier l'API
   try {
     const { uuid: userUuid } = state.context.user;
     const lookup = await lookupTranscription(userUuid, voicemail.id);
 
     if (lookup.found && lookup.status === 'completed') {
       state.transcriptionCache.set(voicemail.id, { status: 'completed', text: lookup.text });
+      saveTranscriptionsToStorage();
       const btn = item.querySelector('.stt-transcribe-btn');
       if (btn) btn.classList.add('done');
     }
@@ -437,6 +630,7 @@ async function requestTranscription(voicemail, item, force = false) {
       const lookup = await lookupTranscription(userUuid, messageId);
       if (lookup.found && lookup.status === 'completed') {
         state.transcriptionCache.set(messageId, { status: 'completed', text: lookup.text });
+        saveTranscriptionsToStorage();
         updatePanelContent(item, messageId, 'completed', lookup.text);
         if (btn) {
           btn.classList.remove('loading');
@@ -456,6 +650,7 @@ async function requestTranscription(voicemail, item, force = false) {
     if (submitResponse.cached && submitResponse.status === 'completed') {
       const jobStatus = await getJobStatus(submitResponse.job_id);
       state.transcriptionCache.set(messageId, { status: 'completed', text: jobStatus.text });
+      saveTranscriptionsToStorage();
       updatePanelContent(item, messageId, 'completed', jobStatus.text);
       if (btn) {
         btn.classList.remove('loading');
@@ -570,6 +765,7 @@ function startPolling(jobId, messageId, item) {
         case 'completed':
           state.transcriptionPollers.delete(messageId);
           state.transcriptionCache.set(messageId, { status: 'completed', text: status.text });
+          saveTranscriptionsToStorage();
           updatePanelContent(item, messageId, 'completed', status.text);
           if (btn) {
             btn.classList.remove('loading');
