@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   wazo-stt-client:
     build: .
