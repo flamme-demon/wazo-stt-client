@@ -1,0 +1,23 @@
+{
+  "name": "wazo-voicemail-stt",
+  "version": "1.0.0",
+  "description": "Plugin Wazo pour afficher les messages vocaux avec transcription STT",
+  "main": "app.js",
+  "scripts": {
+    "start": "npx serve -l 8080 -C",
+    "dev": "npx serve -l 8080 -C",
+    "build": "echo 'No build step required for static files'"
+  },
+  "keywords": [
+    "wazo",
+    "voicemail",
+    "stt",
+    "transcription",
+    "plugin"
+  ],
+  "author": "flamme-demon",
+  "license": "MIT",
+  "devDependencies": {
+    "serve": "^14.2.0"
+  }
+}

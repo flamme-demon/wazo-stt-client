@@ -1,0 +1,30 @@
+{
+  "manifestVersion": "0.1",
+  "version": "1.0.0",
+  "id": "wazo-voicemail-stt",
+  "packageName": "wazo-voicemail-stt",
+  "productType": "app",
+  "name": {
+    "short": "Voicemail STT",
+    "full": "Voicemail avec Transcription"
+  },
+  "description": {
+    "short": "Transcription des messages vocaux",
+    "full": "Plugin Wazo pour afficher les messages vocaux avec transcription automatique via STT"
+  },
+  "icons": {
+    "color": "./icon.svg"
+  },
+  "developer": {
+    "name": "flamme-demon"
+  },
+  "staticTabs": [
+    {
+      "entityId": "voicemail-stt",
+      "context": ["generalTab"],
+      "name": "Messagerie",
+      "contentUrl": "./index.html",
+      "icon": "./icon.svg"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+services:
+  wazo-stt-client:
+    build: .
+    container_name: wazo-stt-client
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.wazo-stt-client.rule=Host(`stt-client.example.com`)"
+      - "traefik.http.services.wazo-stt-client.loadbalancer.server.port=80"
