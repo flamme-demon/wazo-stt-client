@@ -8,6 +8,7 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY manifest.json /usr/share/nginx/html/
 COPY index.html /usr/share/nginx/html/
 COPY app.js /usr/share/nginx/html/
+COPY overlay.js /usr/share/nginx/html/
 COPY style.css /usr/share/nginx/html/
 COPY icon.svg /usr/share/nginx/html/
 
