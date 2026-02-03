@@ -28,6 +28,7 @@ const state = {
 
 // Cle localStorage pour la persistence
 const STORAGE_KEY = 'stt-transcriptions';
+const STORAGE_KEY_SERVER = 'sttServerUrl';
 
 // Styles CSS a injecter
 const STYLES = `
@@ -182,6 +183,124 @@ const STYLES = `
 @keyframes stt-spin {
   to { transform: rotate(360deg); }
 }
+
+/* Bouton settings */
+.stt-settings-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  background-color: transparent;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-left: 8px;
+}
+.stt-settings-btn:hover {
+  background-color: #f5f5f5;
+  color: #1976d2;
+}
+
+/* Modal settings */
+.stt-settings-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+.stt-settings-overlay.visible {
+  opacity: 1;
+  visibility: visible;
+}
+.stt-settings-modal {
+  background: #fff;
+  border-radius: 12px;
+  padding: 24px;
+  width: 400px;
+  max-width: 90vw;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  transform: scale(0.9);
+  transition: transform 0.2s ease;
+}
+.stt-settings-overlay.visible .stt-settings-modal {
+  transform: scale(1);
+}
+.stt-settings-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+  margin: 0 0 20px 0;
+}
+.stt-settings-field {
+  margin-bottom: 16px;
+}
+.stt-settings-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: #666;
+  margin-bottom: 6px;
+}
+.stt-settings-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 14px;
+  box-sizing: border-box;
+  transition: border-color 0.2s ease;
+}
+.stt-settings-input:focus {
+  outline: none;
+  border-color: #1976d2;
+}
+.stt-settings-hint {
+  font-size: 11px;
+  color: #999;
+  margin-top: 4px;
+}
+.stt-settings-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+.stt-settings-btn-cancel,
+.stt-settings-btn-save {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.stt-settings-btn-cancel {
+  border: 1px solid #e0e0e0;
+  background: #fff;
+  color: #666;
+}
+.stt-settings-btn-cancel:hover {
+  background: #f5f5f5;
+}
+.stt-settings-btn-save {
+  border: none;
+  background: #1976d2;
+  color: #fff;
+}
+.stt-settings-btn-save:hover {
+  background: #1565c0;
+}
 `;
 
 // Icone SVG pour le bouton transcription
@@ -195,6 +314,10 @@ const REFRESH_ICON = `<svg width="14" height="14" viewBox="0 0 24 24" fill="curr
 
 const EXPAND_ICON = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
   <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
+</svg>`;
+
+const SETTINGS_ICON = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+  <path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
 </svg>`;
 
 /**
@@ -373,7 +496,7 @@ function processVoicemailItems() {
 }
 
 /**
- * Injecte le bouton toggle "Tout deplier"
+ * Injecte le bouton toggle "Tout deplier" et le bouton settings
  */
 function injectExpandAllToggle() {
   if (document.querySelector('.stt-expand-all-btn')) return;
@@ -384,15 +507,104 @@ function injectExpandAllToggle() {
 
   const filterContainer = filterBtn.parentElement;
 
-  const btn = document.createElement('button');
-  btn.className = 'stt-expand-all-btn';
-  btn.title = 'Deplier/replier toutes les transcriptions';
-  btn.innerHTML = `${EXPAND_ICON}<span>Transcriptions</span>`;
+  // Bouton expand all
+  const expandBtn = document.createElement('button');
+  expandBtn.className = 'stt-expand-all-btn';
+  expandBtn.title = 'Deplier/replier toutes les transcriptions';
+  expandBtn.innerHTML = `${EXPAND_ICON}<span>Transcriptions</span>`;
+  expandBtn.addEventListener('click', toggleExpandAll);
 
-  btn.addEventListener('click', toggleExpandAll);
+  // Bouton settings
+  const settingsBtn = document.createElement('button');
+  settingsBtn.className = 'stt-settings-btn';
+  settingsBtn.title = 'Configuration du serveur STT';
+  settingsBtn.innerHTML = SETTINGS_ICON;
+  settingsBtn.addEventListener('click', showSettingsModal);
 
   // Inserer au debut du conteneur (a gauche du filtre)
-  filterContainer.insertBefore(btn, filterContainer.firstChild);
+  filterContainer.insertBefore(settingsBtn, filterContainer.firstChild);
+  filterContainer.insertBefore(expandBtn, filterContainer.firstChild);
+
+  // Injecter le modal settings dans le body
+  injectSettingsModal();
+}
+
+/**
+ * Injecte le modal de configuration
+ */
+function injectSettingsModal() {
+  if (document.querySelector('.stt-settings-overlay')) return;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'stt-settings-overlay';
+  overlay.innerHTML = `
+    <div class="stt-settings-modal">
+      <h2 class="stt-settings-title">Configuration STT</h2>
+      <div class="stt-settings-field">
+        <label class="stt-settings-label">Adresse du serveur STT</label>
+        <input type="text" class="stt-settings-input" id="stt-server-url"
+               placeholder="http://localhost:8000" value="${CONFIG.sttServerUrl}">
+        <div class="stt-settings-hint">Exemple: http://192.168.1.100:8000</div>
+      </div>
+      <div class="stt-settings-actions">
+        <button class="stt-settings-btn-cancel">Annuler</button>
+        <button class="stt-settings-btn-save">Enregistrer</button>
+      </div>
+    </div>
+  `;
+
+  // Fermer en cliquant sur l'overlay
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) hideSettingsModal();
+  });
+
+  // Bouton annuler
+  overlay.querySelector('.stt-settings-btn-cancel').addEventListener('click', hideSettingsModal);
+
+  // Bouton enregistrer
+  overlay.querySelector('.stt-settings-btn-save').addEventListener('click', saveSettings);
+
+  document.body.appendChild(overlay);
+}
+
+/**
+ * Affiche le modal de configuration
+ */
+function showSettingsModal() {
+  const overlay = document.querySelector('.stt-settings-overlay');
+  if (overlay) {
+    // Mettre a jour la valeur actuelle
+    const input = overlay.querySelector('#stt-server-url');
+    if (input) input.value = CONFIG.sttServerUrl;
+    overlay.classList.add('visible');
+  }
+}
+
+/**
+ * Cache le modal de configuration
+ */
+function hideSettingsModal() {
+  const overlay = document.querySelector('.stt-settings-overlay');
+  if (overlay) {
+    overlay.classList.remove('visible');
+  }
+}
+
+/**
+ * Sauvegarde les parametres
+ */
+function saveSettings() {
+  const input = document.querySelector('#stt-server-url');
+  if (input) {
+    let url = input.value.trim();
+    // Retirer le slash final si present
+    if (url.endsWith('/')) url = url.slice(0, -1);
+
+    CONFIG.sttServerUrl = url;
+    localStorage.setItem(STORAGE_KEY_SERVER, url);
+    console.log('[STT Overlay] Serveur STT configure:', url);
+  }
+  hideSettingsModal();
 }
 
 /**
