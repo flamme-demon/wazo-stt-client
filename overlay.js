@@ -6,8 +6,9 @@
 import { App } from 'https://unpkg.com/@wazo/euc-plugins-sdk@latest/lib/esm/app.js';
 
 // Configuration
+// L'URL est remplacee au demarrage du conteneur Docker via la variable STT_SERVER_URL
 const CONFIG = {
-  sttServerUrl: localStorage.getItem('sttServerUrl') || 'http://localhost:8000',
+  sttServerUrl: '__STT_SERVER_URL__',
   pollInterval: 2000,
   pollTimeout: 120000,
   observerDebounce: 300
@@ -384,15 +385,15 @@ function injectExpandAllToggle() {
 
   const filterContainer = filterBtn.parentElement;
 
-  const btn = document.createElement('button');
-  btn.className = 'stt-expand-all-btn';
-  btn.title = 'Deplier/replier toutes les transcriptions';
-  btn.innerHTML = `${EXPAND_ICON}<span>Transcriptions</span>`;
-
-  btn.addEventListener('click', toggleExpandAll);
+  // Bouton expand all
+  const expandBtn = document.createElement('button');
+  expandBtn.className = 'stt-expand-all-btn';
+  expandBtn.title = 'Deplier/replier toutes les transcriptions';
+  expandBtn.innerHTML = `${EXPAND_ICON}<span>Transcriptions</span>`;
+  expandBtn.addEventListener('click', toggleExpandAll);
 
   // Inserer au debut du conteneur (a gauche du filtre)
-  filterContainer.insertBefore(btn, filterContainer.firstChild);
+  filterContainer.insertBefore(expandBtn, filterContainer.firstChild);
 }
 
 /**
