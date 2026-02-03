@@ -5,6 +5,9 @@ services:
     ports:
       - "8080:80"
     restart: unless-stopped
+    environment:
+      # URL du serveur STT (modifier selon votre configuration)
+      - STT_SERVER_URL=http://localhost:8000
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.wazo-stt-client.rule=Host(`stt-client.example.com`)"

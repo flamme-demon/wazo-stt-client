@@ -12,8 +12,16 @@ COPY overlay.js /usr/share/nginx/html/
 COPY style.css /usr/share/nginx/html/
 COPY icon.svg /usr/share/nginx/html/
 
+# Copier le script d'entrypoint
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
+
+# Variable d'environnement pour l'URL du serveur STT
+ENV STT_SERVER_URL=http://localhost:8000
+
 # Exposer le port 80
 EXPOSE 80
 
-# Démarrer nginx
+# Utiliser l'entrypoint pour configurer l'URL au demarrage
+ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["nginx", "-g", "daemon off;"]

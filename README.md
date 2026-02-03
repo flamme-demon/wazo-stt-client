@@ -72,15 +72,24 @@ php -S localhost:8080
 
 ## Configuration du serveur STT
 
-Par défaut, le plugin se connecte au serveur STT sur `http://localhost:8000`.
+L'URL du serveur STT est configurée via la variable d'environnement Docker `STT_SERVER_URL`.
 
-Pour modifier cette URL, utilisez le localStorage dans la console du navigateur :
+Par défaut : `http://localhost:8000`
 
-```javascript
-localStorage.setItem('sttServerUrl', 'https://votre-serveur-stt.example.com');
+### Avec docker-compose
+
+```yaml
+services:
+  wazo-stt-client:
+    environment:
+      - STT_SERVER_URL=http://192.168.1.100:8000
 ```
 
-Puis rechargez la page.
+### Avec docker run
+
+```bash
+docker run -d -p 8080:80 -e STT_SERVER_URL=http://192.168.1.100:8000 wazo-stt-client
+```
 
 ## Utilisation
 
