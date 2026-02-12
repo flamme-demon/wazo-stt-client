@@ -5,10 +5,26 @@
 
 import { App } from 'https://unpkg.com/@wazo/euc-plugins-sdk@latest/lib/esm/app.js';
 
+/**
+ * Recupere une valeur du localStorage de maniere securisee
+ * @param {string} key - Cle a recuperer
+ * @param {string} defaultValue - Valeur par defaut si indisponible
+ * @returns {string|null}
+ */
+function getFromStorage(key, defaultValue = null) {
+  try {
+    const value = localStorage.getItem(key);
+    return value !== null ? value : defaultValue;
+  } catch (e) {
+    console.warn('localStorage non disponible:', e);
+    return defaultValue;
+  }
+}
+
 // Configuration
 const CONFIG = {
   // URL du serveur STT (a configurer selon l'environnement)
-  sttServerUrl: localStorage.getItem('sttServerUrl') || 'http://localhost:8000',
+  sttServerUrl: getFromStorage('sttServerUrl', 'http://localhost:8000'),
   // Intervalle de polling pour les transcriptions (ms)
   pollInterval: 2000,
   // Timeout maximum pour le polling (ms)

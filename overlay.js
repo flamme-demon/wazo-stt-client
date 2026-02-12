@@ -231,20 +231,47 @@ async function init() {
 }
 
 /**
+ * Recupere une valeur du localStorage de maniere securisee
+ * @param {string} key - Cle a recuperer
+ * @param {any} defaultValue - Valeur par defaut si indisponible
+ * @returns {any}
+ */
+function safeGetItem(key, defaultValue = null) {
+  try {
+    const value = localStorage.getItem(key);
+    return value !== null ? JSON.parse(value) : defaultValue;
+  } catch (e) {
+    console.warn('[STT Overlay] localStorage non disponible:', e);
+    return defaultValue;
+  }
+}
+
+/**
+ * Sauvegarde une valeur dans localStorage de maniere securisee
+ * @param {string} key - Cle a sauvegarder
+ * @param {any} value - Valeur a sauvegarder
+ * @returns {boolean}
+ */
+function safeSetItem(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch (e) {
+    console.warn('[STT Overlay] Erreur sauvegarde localStorage:', e);
+    return false;
+  }
+}
+
+/**
  * Charge les transcriptions depuis localStorage
  */
 function loadTranscriptionsFromStorage() {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      const data = JSON.parse(stored);
-      Object.entries(data).forEach(([messageId, transcription]) => {
-        state.transcriptionCache.set(messageId, transcription);
-      });
-      console.log('[STT Overlay] Transcriptions chargees depuis localStorage:', state.transcriptionCache.size);
-    }
-  } catch (error) {
-    console.error('[STT Overlay] Erreur chargement localStorage:', error);
+  const data = safeGetItem(STORAGE_KEY, {});
+  if (data && typeof data === 'object') {
+    Object.entries(data).forEach(([messageId, transcription]) => {
+      state.transcriptionCache.set(messageId, transcription);
+    });
+    console.log('[STT Overlay] Transcriptions chargees depuis localStorage:', state.transcriptionCache.size);
   }
 }
 
@@ -252,17 +279,13 @@ function loadTranscriptionsFromStorage() {
  * Sauvegarde les transcriptions dans localStorage
  */
 function saveTranscriptionsToStorage() {
-  try {
-    const data = {};
-    state.transcriptionCache.forEach((value, key) => {
-      if (value.status === 'completed') {
-        data[key] = value;
-      }
-    });
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } catch (error) {
-    console.error('[STT Overlay] Erreur sauvegarde localStorage:', error);
-  }
+  const data = {};
+  state.transcriptionCache.forEach((value, key) => {
+    if (value.status === 'completed') {
+      data[key] = value;
+    }
+  });
+  safeSetItem(STORAGE_KEY, data);
 }
 
 /**
